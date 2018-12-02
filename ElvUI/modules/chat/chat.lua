@@ -1940,6 +1940,12 @@ function CH:Initialize()
 	CombatLogQuickButtonFrame_CustomAdditionalFilterButton:SetHitRectInsets(0, 0, 0, 0)
 
 	self:Panels_ColorUpdate()
+	
+	for i = 1, NUM_CHAT_WINDOWS do
+		local frame = _G[format("ChatFrame%s", i)]
+		local id = frame:GetID();
+		_G[format("ChatFrame%sButtonFrame2", id)]:Hide();
+	end
 end
 
 local function InitializeCallback()
