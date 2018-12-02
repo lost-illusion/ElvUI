@@ -26,6 +26,7 @@ local SetCVar = SetCVar;
 local UnitCastingInfo = UnitCastingInfo;
 local UnitIsAFK = UnitIsAFK;
 local RAID_CLASS_COLORS = RAID_CLASS_COLORS;
+local RemoveExtraSpaces = RemoveExtraSpaces;
 
 local CAMERA_SPEED = 0.035;
 local ignoreKeys = {
