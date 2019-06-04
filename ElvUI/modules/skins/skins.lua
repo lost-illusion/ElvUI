@@ -392,6 +392,10 @@ function S:HandleItemButton(b, shrinkIcon)
 end
 
 function S:HandleCloseButton(f, point, text)
+	if not f then
+		return
+	end
+
 	f:StripTextures();
 
 	if(f:GetNormalTexture()) then f:SetNormalTexture(""); f.SetNormalTexture = E.noop; end

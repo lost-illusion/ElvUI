@@ -218,6 +218,7 @@ local function CreateShadow(f)
 	f.shadow = shadow
 end
 
+
 local function Kill(object)
 	if object.UnregisterAllEvents then
 		object:UnregisterAllEvents()
@@ -229,21 +230,70 @@ local function Kill(object)
 	object:Hide()
 end
 
-local function StripTextures(object, kill)
-	for i=1, object:GetNumRegions() do
-		local region = select(i, object:GetRegions())
-		if region and region:GetObjectType() == "Texture" then
-			if kill and type(kill) == "boolean" then
-				region:Kill()
-			elseif region:GetDrawLayer() == kill then
-				region:SetTexture(nil)
-			elseif kill and type(kill) == "string" and region:GetTexture() ~= kill then
-				region:SetTexture(nil)
-			else
-				region:SetTexture(nil)
+local StripTexturesBlizzFrames = {
+	'Inset',
+	'inset',
+	'InsetFrame',
+	'LeftInset',
+	'RightInset',
+	'NineSlice',
+	'BorderFrame',
+	'bottomInset',
+	'BottomInset',
+	'bgLeft',
+	'bgRight',
+	'FilligreeOverlay',
+	'PortraitOverlay',
+	'ArtOverlayFrame',
+	'Portrait',
+	'portrait',
+}
+
+local STRIP_TEX = 'Texture'
+local STRIP_FONT = 'FontString'
+local function StripRegion(which, object, kill, alpha)
+	if kill then
+		object:Kill()
+	elseif alpha then
+		object:SetAlpha(0)
+	elseif which == STRIP_TEX then
+		object:SetTexture()
+	elseif which == STRIP_FONT then
+		object:SetText('')
+	end
+end
+
+local function StripType(which, object, kill, alpha)
+	if object:IsObjectType(which) then
+		StripRegion(which, object, kill, alpha)
+	else
+		if which == STRIP_TEX then
+			local FrameName = object.GetName and object:GetName()
+			for _, Blizzard in pairs(StripTexturesBlizzFrames) do
+				local BlizzFrame = object[Blizzard] or (FrameName and _G[FrameName..Blizzard])
+				if BlizzFrame then
+					BlizzFrame:StripTextures(kill, alpha)
+				end
+			end
+		end
+
+		if object.GetNumRegions then
+			for i = 1, object:GetNumRegions() do
+				local region = select(i, object:GetRegions())
+				if region and region.IsObjectType and region:IsObjectType(which) then
+					StripRegion(which, region, kill, alpha)
+				end
 			end
 		end
 	end
+end
+
+local function StripTextures(object, kill, alpha)
+	StripType(STRIP_TEX, object, kill, alpha)
+end
+
+local function StripTexts(object, kill, alpha)
+	StripType(STRIP_FONT, object, kill, alpha)
 end
 
 local function FontTemplate(fs, font, fontSize, fontStyle)
@@ -251,25 +301,19 @@ local function FontTemplate(fs, font, fontSize, fontStyle)
 	fs.fontSize = fontSize
 	fs.fontStyle = fontStyle
 
-	font = font or LSM:Fetch("font", E.db["general"].font)
+	font = font or LSM:Fetch('font', E.db.general.font)
 	fontSize = fontSize or E.db.general.fontSize
+	fontStyle = fontStyle or E.db.general.fontStyle
 
-	if fontStyle == "OUTLINE" and (E.db.general.font == "Homespun") then
-		if (fontSize > 10 and not fs.fontSize) then
-			fontStyle = "MONOCHROMEOUTLINE"
-			fontSize = 10
-		end
+	if fontStyle == 'OUTLINE' and E.db.general.font == 'Homespun' and (fontSize > 10 and not fs.fontSize) then
+		fontSize, fontStyle = 10, 'MONOCHROMEOUTLINE'
 	end
 
 	fs:SetFont(font, fontSize, fontStyle)
-	if fontStyle and (fontStyle ~= "NONE") then
-		fs:SetShadowColor(0, 0, 0, 0.2)
-	else
-		fs:SetShadowColor(0, 0, 0, 1)
-	end
-	fs:SetShadowOffset((E.mult or 1), -(E.mult or 1))
+	fs:SetShadowColor(0, 0, 0, (fontStyle and fontStyle ~= 'NONE' and 0.2) or 1)
+	fs:SetShadowOffset(E.mult or 1, -(E.mult or 1))
 
-	E["texts"][fs] = true
+	E.texts[fs] = true
 end
 
 local function StyleButton(button, noHover, noPushed, noChecked)
@@ -305,33 +349,35 @@ local function StyleButton(button, noHover, noPushed, noChecked)
 	end
 end
 
-local function CreateCloseButton(frame, size, offset, texture, backdrop)
-	size = (size or 16)
-	offset = (offset or -6)
-	texture = (texture or "Interface\\AddOns\\ElvUI\\media\\textures\\close.tga")
+local CreateCloseButton
+do
+	local CloseButtonOnClick = function(btn) btn:GetParent():Hide() end
+	local CloseButtonOnEnter = function(btn) if btn.Texture then btn.Texture:SetVertexColor(unpack(E.media.rgbvaluecolor)) end end
+	local CloseButtonOnLeave = function(btn) if btn.Texture then btn.Texture:SetVertexColor(1, 1, 1) end end
+	CreateCloseButton = function(frame, size, offset, texture, backdrop)
+		local CloseButton = CreateFrame('Button', nil, frame)
+		CloseButton:Size(size or 16)
+		CloseButton:Point('TOPRIGHT', offset or -6, offset or -6)
+		if backdrop then
+			CloseButton:CreateBackdrop(nil, true)
+		end
 
-	local CloseButton = CreateFrame("Button", nil, frame)
-	CloseButton:Size(size)
-	CloseButton:Point("TOPRIGHT", offset, offset)
-	if backdrop then
-		CloseButton:CreateBackdrop("Default", true)
+		CloseButton.Texture = CloseButton:CreateTexture(nil, 'OVERLAY')
+		CloseButton.Texture:SetAllPoints()
+		CloseButton.Texture:SetTexture(texture or E.Media.Textures.Close)
+
+		CloseButton:SetScript('OnClick', CloseButtonOnClick)
+		CloseButton:SetScript('OnEnter', CloseButtonOnEnter)
+		CloseButton:SetScript('OnLeave', CloseButtonOnLeave)
+
+		frame.CloseButton = CloseButton
 	end
+end
 
-	CloseButton.Texture = CloseButton:CreateTexture(nil, "OVERLAY")
-	CloseButton.Texture:SetAllPoints()
-	CloseButton.Texture:SetTexture(texture)
-
-	CloseButton:SetScript("OnClick", function(self)
-		self:GetParent():Hide()
-	end)
-	CloseButton:SetScript("OnEnter", function(self)
-		self.Texture:SetVertexColor(unpack(E["media"].rgbvaluecolor))
-	end)
-	CloseButton:SetScript("OnLeave", function(self)
-		self.Texture:SetVertexColor(1, 1, 1)
-	end)
-
-	frame.CloseButton = CloseButton
+local function GetNamedChild(frame, childName, index)
+	local name = frame and frame.GetName and frame:GetName()
+	if not name or not childName then return nil end
+	return _G[name..childName..(index or '')]
 end
 
 local function addapi(object)
