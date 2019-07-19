@@ -234,9 +234,11 @@ local function Chat_OnEvent(self, event, arg1, arg2, arg3, arg4, arg5, arg6, arg
 	local accessID = ChatHistory_GetAccessID(chatGroup, chatTarget);
 	local typeID = ChatHistory_GetAccessID(type, chatTarget, arg12 == "" and arg13 or arg12);
 	if CH.db.shortChannels then
+		local _AFKString = AFKString or AFK
+
 		body = body:gsub("|Hchannel:(.-)|h%[(.-)%]|h", CH.ShortChannel);
 		body = body:gsub("^(.-|h) "..L["whispers"], "%1");
-		body = body:gsub("<"..AFKString..">", "[|cffFF0000"..L["AFK"].."|r] ");
+		body = body:gsub("<".._AFKString..">", "[|cffFF0000"..L["AFK"].."|r] ");
 		body = body:gsub("<"..DND..">", "[|cffE7E716"..L["DND"].."|r] ");
 		body = body:gsub("%[BN_CONVERSATION:", "%[".."");
 	end
